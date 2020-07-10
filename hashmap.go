@@ -29,6 +29,7 @@ type hashmap struct {
 }
 
 type entity struct {
+	_    [7]uint8
 	key  uint8
 	data []byte
 	next *entity
@@ -43,7 +44,7 @@ func newHashmap() *hashmap {
 }
 
 func (h *hashmap) rehash(slot1 uint64) {
-	if h.entities == nil {
+	if h.entities1 == nil {
 		return
 	}
 

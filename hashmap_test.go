@@ -6,10 +6,12 @@ import (
 	"github.com/pubgo/xtest"
 	"math/rand"
 	"testing"
+	_ "unsafe"
 )
 
 var h = newHashmap()
 var m = make(map[string][]byte, 1024)
+
 func TestName(t *testing.T) {
 	var key = make([]byte, 100)
 	bb := xtest.Benchmark(1000000).Do(func(b *xtest.B) {

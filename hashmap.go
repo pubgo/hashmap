@@ -5,31 +5,34 @@ import (
 	"github.com/pubgo/hashmap/internal"
 	"math/rand"
 	"time"
-	"unsafe"
 )
 
 const defaultCap = 10
 const factor = 6.5
 
-var entitySize = int(unsafe.Sizeof(entity{}))
-
 type hashmap struct {
-	cap         uint8
-	entities    []*entity
-	entities1   []*entity
-	delEntities *entity
-
+	cap       uint8
 	slotsNum  uint32
 	slotsNum1 uint32
 
-	delNum uint32
-	size   uint32
 	count  uint32
 	count1 uint32
+
+	hh   [][]uint8
+	hh1  [][]uint8
+	data [][]byte
+}
+
+type bm struct {
+	lock        uint8
+	w           int32
+	readerCount int32
+	readerWait  int32
+	topHash     []uint8
+	next        *entity
 }
 
 type entity struct {
-	_    [7]uint8
 	key  uint8
 	data []byte
 	next *entity
@@ -39,7 +42,7 @@ func newHashmap() *hashmap {
 	h := &hashmap{}
 	h.cap = defaultCap
 	h.slotsNum = 1<<h.cap - 1
-	h.entities = make([]*entity, h.slotsNum+1)
+	h.entities = make([]entity, h.slotsNum+1)
 	return h
 }
 
@@ -140,7 +143,6 @@ func (h *hashmap) del1(entities []*entity, slot uint64, key []byte) *entity {
 	ent.next = h.delEntities
 	h.delEntities = ent
 	h.delNum++
-	h.size -= uint32(entitySize + len(ent.data))
 	ent.data = ent.data[:0]
 	h.rehash1()
 	return ent
@@ -192,7 +194,6 @@ func (h *hashmap) set(key, val []byte) *entity {
 		h.count++
 	}
 
-	h.size += uint32(entitySize + dl - len(ent.data))
 	ent.data = dt
 
 	ent.next = h.entities[slot]

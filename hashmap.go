@@ -3,6 +3,7 @@ package hashmap
 import (
 	"bytes"
 	"github.com/pubgo/hashmap/internal"
+	"github.com/pubgo/hashmap/ringbuf"
 	"math/rand"
 	"time"
 )
@@ -18,31 +19,20 @@ type hashmap struct {
 	count  uint32
 	count1 uint32
 
-	hh   [][]uint8
-	hh1  [][]uint8
-	data [][]byte
+	rb    *ringbuf.RingBuf
+	items [][]item
 }
 
-type bm struct {
-	lock        uint8
-	w           int32
-	readerCount int32
-	readerWait  int32
-	topHash     []uint8
-	next        *entity
-}
-
-type entity struct {
-	key  uint8
-	data []byte
-	next *entity
+type item struct {
+	hash  uint32
+	index int32
 }
 
 func newHashmap() *hashmap {
 	h := &hashmap{}
 	h.cap = defaultCap
 	h.slotsNum = 1<<h.cap - 1
-	h.entities = make([]entity, h.slotsNum+1)
+	h.items = make([][]item, h.slotsNum+1)
 	return h
 }
 
@@ -95,16 +85,17 @@ func (h *hashmap) getSlots(key []byte) (uint64, uint64) {
 	return hk & uint64(h.slotsNum), hk & uint64(h.slotsNum1)
 }
 
-func (h *hashmap) get1(entities []*entity, slot uint64, key []byte) (ent *entity) {
-	for ent = entities[slot]; ent != nil; ent = ent.next {
-		if bytes.Equal(ent.data[:ent.key], key) {
-			return
+func (h *hashmap) get1(slot uint64, keyHash uint32, key string) (inx int32) {
+	items := h.items[slot]
+	for i := range items {
+		if items[i].hash == keyHash && h.rb.CheckKey(items[i].index, key) {
+			return items[i].index
 		}
 	}
 	return
 }
 
-func (h *hashmap) get(key []byte) *entity {
+func (h *hashmap) get(key []byte) *item {
 	var ent *entity
 	slot, slot1 := h.getSlots(key)
 	if h.entities1 != nil {
@@ -163,6 +154,22 @@ func (h *hashmap) del(key []byte) (ent *entity) {
 		if ent != nil {
 			h.count--
 		}
+	}
+	return
+}
+
+func (h *hashmap) lookup(slot []entryPtr, hash16 uint16, key []byte) (idx int, match bool) {
+	idx = entryPtrIdx(slot, hash16)
+	for idx < len(slot) {
+		ptr := &slot[idx]
+		if ptr.hash16 != hash16 {
+			break
+		}
+		match = int(ptr.keyLen) == len(key) && seg.rb.EqualAt(key, ptr.offset+ENTRY_HDR_SIZE)
+		if match {
+			return
+		}
+		idx++
 	}
 	return
 }

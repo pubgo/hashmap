@@ -2,10 +2,12 @@ package hashmap
 
 import (
 	"bytes"
+	"math/rand"
+	"sync"
+	"time"
+
 	"github.com/pubgo/hashmap/internal"
 	"github.com/pubgo/hashmap/ringbuf"
-	"math/rand"
-	"time"
 )
 
 const defaultCap = 10

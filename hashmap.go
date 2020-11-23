@@ -98,6 +98,7 @@ func (h *hashmap) get1(slot uint64, keyHash uint32, key string) (inx int32) {
 }
 
 func (h *hashmap) get(key []byte) *item {
+	sync.RWMutex{}
 	var ent *entity
 	slot, slot1 := h.getSlots(key)
 	if h.entities1 != nil {
